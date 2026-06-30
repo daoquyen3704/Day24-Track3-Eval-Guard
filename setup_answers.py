@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+sys.stdout.reconfigure(encoding='utf-8')
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -26,11 +27,11 @@ def check_day18_files() -> bool:
     ]
     missing = [f for f in required if not os.path.exists(f)]
     if missing:
-        print("\n❌ Thiếu files từ Day 18. Copy chúng vào src/ trước:\n")
+        print("\n[X] Thiếu files từ Day 18. Copy chúng vào src/ trước:\n")
         for f in missing:
             print(f"   cp <Day18>/src/{os.path.basename(f)} src/")
         return False
-    print(f"✓ Day 18 source files: {len(required)}/{len(required)} found")
+    print(f"[OK] Day 18 source files: {len(required)}/{len(required)} found")
     return True
 
 
@@ -53,23 +54,25 @@ def build_pipeline():
                 "metadata": {**child.metadata, "parent_id": child.parent_id},
             })
 
+    print("Calling enrich_chunks...", flush=True)
     enriched = enrich_chunks(all_chunks)
+    print("Returned from enrich_chunks!!!", flush=True)
     if enriched:
         all_chunks = [{"text": e.enriched_text, "metadata": e.auto_metadata} for e in enriched]
-        print(f"  ✓ Enriched {len(enriched)} chunks ({time.time()-t0:.1f}s)")
+        print(f"  [OK] Enriched {len(enriched)} chunks ({time.time()-t0:.1f}s)")
     else:
-        print(f"  ✓ Using {len(all_chunks)} raw chunks (M5 not implemented or no API key)")
+        print(f"  [OK] Using {len(all_chunks)} raw chunks (M5 not implemented or no API key)")
 
     print("\n[2/3] Indexing (BM25 + Dense)...")
     t0 = time.time()
     search = HybridSearch()
     search.index(all_chunks)
-    print(f"  ✓ Indexed {len(all_chunks)} chunks ({time.time()-t0:.1f}s)")
+    print(f"  [OK] Indexed {len(all_chunks)} chunks ({time.time()-t0:.1f}s)")
 
     print("\n[3/3] Loading reranker...")
     t0 = time.time()
     reranker = CrossEncoderReranker()
-    print(f"  ✓ Reranker ready ({time.time()-t0:.1f}s)")
+    print(f"  [OK] Reranker ready ({time.time()-t0:.1f}s)")
 
     return search, reranker, RERANK_TOP_K
 
@@ -111,12 +114,12 @@ def main():
 
     with open("test_set_50q.json", encoding="utf-8") as f:
         test_set = json.load(f)
-    print(f"✓ Loaded {len(test_set)} questions (factual/multi_hop/adversarial)")
+    print(f"[OK] Loaded {len(test_set)} questions (factual/multi_hop/adversarial)")
 
     try:
         search, reranker, top_k = build_pipeline()
     except ImportError as e:
-        print(f"\n❌ Import error: {e}")
+        print(f"\n[X] Import error: {e}")
         print("→ Đảm bảo bạn đã copy src/ từ Day 18 và đã pip install -r requirements.txt")
         sys.exit(1)
 
@@ -140,11 +143,17 @@ def main():
     with open("answers_50q.json", "w", encoding="utf-8") as f:
         json.dump(answers, f, ensure_ascii=False, indent=2)
 
-    print(f"\n✓ Saved {len(answers)} answers → answers_50q.json")
+    print(f"\n[OK] Saved {len(answers)} answers → answers_50q.json")
     print(f"  Total time: {time.time()-t_start:.1f}s")
     print("\n→ Bây giờ bắt đầu Phase A:")
     print("     python src/phase_a_ragas.py")
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        import traceback
+        print("CAUGHT EXCEPTION IN MAIN:")
+        traceback.print_exc()
+        sys.exit(1)

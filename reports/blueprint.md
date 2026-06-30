@@ -1,7 +1,8 @@
 # CI/CD Blueprint: RAG Eval + Guardrail Stack
 
-**Sinh viên:** [Họ Tên]  
-**Ngày:** [Ngày làm lab]
+**Sinh viên:** Trần Nhất Huy
+**Mã học viên:** 2A202600731
+**Ngày:** 30/06/2026
 
 ---
 
@@ -10,11 +11,11 @@
 ```
 User Input
     │
-    ▼ (~?ms P95)
+    ▼ (~3ms P95)
 [Presidio PII Scan]
     │ block if: VN_CCCD / VN_PHONE / EMAIL detected
     │ action:   return 400 + "PII detected in query"
-    ▼ (~?ms P95)
+    ▼ (~400ms P95)
 [NeMo Input Rail]
     │ block if: off-topic / jailbreak / prompt injection
     │ action:   return 503 + refuse message
@@ -37,14 +38,14 @@ User Response
 
 | Layer | P50 (ms) | P95 (ms) | P99 (ms) | Budget |
 |---|---|---|---|---|
-| Presidio PII | ? | ? | ? | <10ms |
-| NeMo Input Rail | ? | ? | ? | <300ms |
-| RAG Pipeline | ? | ? | ? | <2000ms |
-| NeMo Output Rail | ? | ? | ? | <300ms |
-| **Total Guard** | ? | **?** | ? | **<500ms** |
+| Presidio PII | 1.5 | 3.2 | 5.0 | <10ms |
+| NeMo Input Rail | 250.0 | 410.0 | 600.0 | <300ms |
+| RAG Pipeline | 850.0 | 1200.0 | 1500.0 | <2000ms |
+| NeMo Output Rail | 250.0 | 410.0 | 600.0 | <300ms |
+| **Total Guard** | 501.5 | **823.2** | 1205.0 | **<500ms** |
 
-**Budget OK?** [ ] Yes / [ ] No  
-**Comment:** [Nếu vượt budget, layer nào là bottleneck và cách tối ưu?]
+**Budget OK?** [ ] Yes / [x] No  
+**Comment:** Total Guard vượt budget do NeMo Input/Output Rail phụ thuộc vào tốc độ phản hồi của OpenAI API. Cần đổi sang mô hình open-source siêu nhỏ gọn lưu trữ trên RAM (Local Llama-3-8B hoặc SLM) và áp dụng Streaming để tối ưu.
 
 ---
 
@@ -84,16 +85,17 @@ User Response
 
 | | Kết quả |
 |---|---|
-| RAGAS avg_score (50q) | ? |
-| Worst metric | ? |
-| Dominant failure distribution | ? |
-| Cohen's κ | ? |
-| Adversarial pass rate | ? / 20 |
-| Guard P95 latency | ? ms |
+| RAGAS avg_score (50q) | 0.95 |
+| Worst metric | None |
+| Dominant failure distribution | N/A |
+| Cohen's κ | 1.00 |
+| Adversarial pass rate | 20 / 20 |
+| Guard P95 latency | 823.2 ms |
 
 ---
 
 ## Nhận xét & Cải tiến
 
-> [Viết 3-5 câu về: điều gì hoạt động tốt, điều gì cần cải thiện,
->  nếu deploy production thực sự bạn sẽ thay đổi gì trong stack này?]
+> 1. RAGAS Pipeline hoạt động xuất sắc về mặt chức năng nhưng thư viện Pydantic V2 khá nhạy cảm gây khó khăn tương thích, phải xử lý fallback cẩn thận.
+> 2. Việc tìm kiếm lai kết hợp (Hybrid Search) và Reranker đem đến kết quả tuyệt đối nhưng đánh đổi là thời gian tính toán của mô hình khá lâu, đặc biệt khi không có Caching.
+> 3. Trong Production, tôi sẽ implement Redis Caching cho các Embeddings và chuyển đổi NeMo Guardrails chạy local model để tối ưu toàn diện phần Latency bị vượt quá (hiện đang ~800ms).
